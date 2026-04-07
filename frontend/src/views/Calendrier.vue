@@ -176,7 +176,8 @@ export default {
 
   computed: {
     isResponsable() {
-      return localStorage.getItem('role') === 'responsable';
+      const role = localStorage.getItem('role');
+      return role === 'responsable' || role === 'admin';
     },
 
     monthLabel() {

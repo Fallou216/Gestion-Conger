@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const path = require('path');
+const seedAdmin = require('./config/seedAdmin');
 
 // 🔹 Charger les variables d'environnement
 dotenv.config();
@@ -10,22 +11,23 @@ dotenv.config();
 const app = express();
 
 // 🔹 Middlewares globaux
-app.use(express.json()); // Pour traiter les requêtes JSON
+app.use(express.json());
 app.use(cors({
-  origin: 'http://localhost:5173', // Frontend Vite
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true
 }));
 
-// 🔹 Pour servir les fichiers uploadés (pièces jointes de congés)
+// 🔹 Pour servir les fichiers uploadés
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// 🔹 Connexion à MongoDB
+// 🔹 Connexion à MongoDB + création admin par défaut
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
 })
-.then(() => {
+.then(async () => {
   console.log('✅ MongoDB connecté');
+  await seedAdmin();
 })
 .catch(err => {
   console.error('❌ Erreur de connexion MongoDB :', err.message);

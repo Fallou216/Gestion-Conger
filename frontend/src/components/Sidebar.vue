@@ -1,21 +1,18 @@
 <template>
   <aside :class="['sidebar', { collapsed }]">
+
     <!-- LOGO -->
     <div class="sb-logo">
       <div class="logo-icon">📅</div>
       <transition name="fade-text">
-        <span class="logo-text" v-if="!collapsed"
-          >Congés<span class="logo-pro">Pro</span></span
-        >
+        <span class="logo-text" v-if="!collapsed">Congés<span class="logo-pro">Pro</span></span>
       </transition>
     </div>
 
     <!-- NAV -->
     <nav class="sb-nav">
       <div class="nav-section" v-if="!collapsed">
-        <span class="nav-label">{{
-          role === "responsable" ? "Administration" : "Mon espace"
-        }}</span>
+        <span class="nav-label">{{ role === 'admin' ? 'Administration' : role === 'responsable' ? 'Gestion' : 'Mon espace' }}</span>
       </div>
 
       <router-link
@@ -30,9 +27,7 @@
           <span class="sb-text" v-if="!collapsed">{{ item.label }}</span>
         </transition>
         <transition name="fade-text">
-          <span class="sb-badge" v-if="item.badge && item.badge() > 0 && !collapsed">{{
-            item.badge()
-          }}</span>
+          <span class="sb-badge" v-if="item.badge && item.badge() > 0 && !collapsed">{{ item.badge() }}</span>
         </transition>
       </router-link>
     </nav>
@@ -46,14 +41,10 @@
         <div class="sb-avatar">{{ userInitiales }}</div>
         <div class="sb-user-details">
           <div class="sb-user-name">{{ userName }}</div>
-          <div class="sb-user-role">
-            {{ role === "responsable" ? "Responsable" : "Employé" }}
-          </div>
+          <div class="sb-user-role">{{ role === 'admin' ? 'Administrateur' : role === 'responsable' ? 'Responsable' : 'Employé' }}</div>
         </div>
       </div>
-      <div class="sb-avatar sb-avatar-mini" v-else :title="userName">
-        {{ userInitiales }}
-      </div>
+      <div class="sb-avatar sb-avatar-mini" v-else :title="userName">{{ userInitiales }}</div>
 
       <button class="sb-logout" @click="logout" :title="collapsed ? 'Déconnexion' : ''">
         <span class="sb-icon">🚪</span>
@@ -64,57 +55,61 @@
     </div>
 
     <!-- TOGGLE -->
-    <button
-      class="sb-toggle"
-      @click="collapsed = !collapsed"
-      :title="collapsed ? 'Ouvrir' : 'Réduire'"
-    >
+    <button class="sb-toggle" @click="collapsed = !collapsed" :title="collapsed ? 'Ouvrir' : 'Réduire'">
       <span :class="['toggle-arrow', { flipped: collapsed }]">◂</span>
     </button>
+
   </aside>
 </template>
 
 <script>
 export default {
-  name: "SidebarComponent",
+  name: 'SidebarComponent',
   data() {
     return {
       collapsed: false,
-      role: localStorage.getItem("role") || "",
+      role: localStorage.getItem('role') || '',
     };
   },
   computed: {
     userName() {
-      const prenom = localStorage.getItem("prenom") || "";
-      const nom = localStorage.getItem("nom") || "";
-      return (prenom + " " + nom).trim() || "Utilisateur";
+      const prenom = localStorage.getItem('prenom') || '';
+      const nom = localStorage.getItem('nom') || '';
+      return (prenom + ' ' + nom).trim() || 'Utilisateur';
     },
     userInitiales() {
-      const parts = this.userName.trim().split(" ").filter(Boolean);
+      const parts = this.userName.trim().split(' ').filter(Boolean);
       return parts.length >= 2
         ? (parts[0][0] + parts[1][0]).toUpperCase()
         : this.userName.slice(0, 2).toUpperCase();
     },
     menuItems() {
-      if (this.role === "responsable") {
+      if (this.role === 'admin') {
         return [
-          { icon: "📊", label: "Dashboard", to: "/responsable/demandes" },
-          { icon: "📅", label: "Calendrier", to: "/responsable/calendrier" },
-          { icon: "👥", label: "Employés", to: "/utilisateurs" },
-          { icon: "🏢", label: "Services", to: "/services" },
+          { icon: '📊', label: 'Dashboard', to: '/admin/dashboard' },
+          { icon: '👥', label: 'Employés', to: '/admin/utilisateurs' },
+          { icon: '🏢', label: 'Services', to: '/admin/services' },
+          { icon: '📋', label: 'Demandes', to: '/admin/demandes' },
+          { icon: '📅', label: 'Calendrier', to: '/admin/calendrier' },
+        ];
+      }
+      if (this.role === 'responsable') {
+        return [
+          { icon: '📊', label: 'Dashboard', to: '/responsable/demandes' },
+          { icon: '📅', label: 'Calendrier', to: '/responsable/calendrier' },
         ];
       }
       return [
-        { icon: "🏠", label: "Dashboard", to: "/employe/dashboard" },
-        { icon: "📝", label: "Nouvelle demande", to: "/employe/soumettre" },
-        { icon: "📋", label: "Mes demandes", to: "/employe/mes-demandes" },
-        { icon: "📅", label: "Calendrier", to: "/employe/calendrier" },
+        { icon: '🏠', label: 'Dashboard', to: '/employe/dashboard' },
+        { icon: '📝', label: 'Nouvelle demande', to: '/employe/soumettre' },
+        { icon: '📋', label: 'Mes demandes', to: '/employe/mes-demandes' },
+        { icon: '📅', label: 'Calendrier', to: '/employe/calendrier' },
       ];
     },
   },
   watch: {
     $route() {
-      this.role = localStorage.getItem("role") || "";
+      this.role = localStorage.getItem('role') || '';
     },
   },
   methods: {
@@ -122,19 +117,19 @@ export default {
       return this.$route.path === path;
     },
     logout() {
-      ["token", "role", "nom", "prenom"].forEach((k) => localStorage.removeItem(k));
-      this.role = "";
-      this.$router.push("/");
+      ['token', 'role', 'nom', 'prenom'].forEach(k => localStorage.removeItem(k));
+      this.role = '';
+      this.$router.push('/');
     },
   },
 };
 </script>
 
 <style scoped>
-@import url("https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap");
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap');
 
 .sidebar {
-  font-family: "Sora", sans-serif;
+  font-family: 'Sora', sans-serif;
   width: 260px;
   min-height: 100vh;
   background: #0d1117;
@@ -146,7 +141,7 @@ export default {
   top: 0;
   left: 0;
   z-index: 1000;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width .3s cubic-bezier(.4,0,.2,1);
   overflow: hidden;
 }
 .sidebar.collapsed {
@@ -162,26 +157,21 @@ export default {
   white-space: nowrap;
 }
 .logo-icon {
-  width: 38px;
-  height: 38px;
+  width: 38px; height: 38px;
   background: linear-gradient(135deg, #4f46e5, #7c3aed);
   border-radius: 11px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex; align-items: center; justify-content: center;
   font-size: 17px;
   flex-shrink: 0;
-  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.3);
+  box-shadow: 0 4px 16px rgba(79,70,229,.3);
 }
 .logo-text {
   font-size: 18px;
   font-weight: 800;
   color: #f8fafc;
-  letter-spacing: -0.02em;
+  letter-spacing: -.02em;
 }
-.logo-pro {
-  color: #818cf8;
-}
+.logo-pro { color: #818cf8; }
 
 /* ── NAV ── */
 .sb-nav {
@@ -197,7 +187,7 @@ export default {
   font-weight: 700;
   color: #334155;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: .12em;
 }
 
 .sb-link {
@@ -210,7 +200,7 @@ export default {
   font-weight: 600;
   color: #64748b;
   text-decoration: none;
-  transition: all 0.2s;
+  transition: all .2s;
   white-space: nowrap;
   position: relative;
 }
@@ -219,11 +209,11 @@ export default {
   color: #e2e8f0;
 }
 .sb-link.active {
-  background: rgba(79, 70, 229, 0.15);
+  background: rgba(79,70,229,.15);
   color: #a5b4fc;
 }
 .sb-link.active::before {
-  content: "";
+  content: '';
   position: absolute;
   left: 0;
   top: 50%;
@@ -256,9 +246,7 @@ export default {
 }
 
 /* ── SPACER ── */
-.sb-spacer {
-  flex: 1;
-}
+.sb-spacer { flex: 1; }
 
 /* ── USER ── */
 .sb-user {
@@ -275,24 +263,19 @@ export default {
   padding: 0 10px;
 }
 .sb-avatar {
-  width: 36px;
-  height: 36px;
+  width: 36px; height: 36px;
   border-radius: 10px;
   background: linear-gradient(135deg, #4f46e5, #7c3aed);
   color: white;
   font-size: 12px;
   font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
 .sb-avatar-mini {
   margin: 0 auto;
 }
-.sb-user-details {
-  overflow: hidden;
-}
+.sb-user-details { overflow: hidden; }
 .sb-user-name {
   font-size: 13px;
   font-weight: 700;
@@ -319,12 +302,12 @@ export default {
   font-size: 13px;
   font-weight: 600;
   color: #64748b;
-  font-family: "Sora", sans-serif;
-  transition: all 0.2s;
+  font-family: 'Sora', sans-serif;
+  transition: all .2s;
   white-space: nowrap;
 }
 .sb-logout:hover {
-  background: rgba(248, 113, 113, 0.1);
+  background: rgba(248,113,113,.1);
   color: #f87171;
 }
 
@@ -333,18 +316,15 @@ export default {
   position: absolute;
   top: 28px;
   right: -14px;
-  width: 28px;
-  height: 28px;
+  width: 28px; height: 28px;
   border-radius: 50%;
   background: #111827;
   border: 1px solid #1e293b;
   color: #64748b;
   font-size: 12px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .2s;
   z-index: 10;
 }
 .sb-toggle:hover {
@@ -353,7 +333,7 @@ export default {
   border-color: #334155;
 }
 .toggle-arrow {
-  transition: transform 0.3s;
+  transition: transform .3s;
   display: inline-block;
 }
 .toggle-arrow.flipped {
@@ -361,31 +341,16 @@ export default {
 }
 
 /* ── FADE TEXT ── */
-.fade-text-enter-active {
-  transition: opacity 0.2s 0.1s;
-}
-.fade-text-leave-active {
-  transition: opacity 0.15s;
-}
-.fade-text-enter-from,
-.fade-text-leave-to {
-  opacity: 0;
-}
+.fade-text-enter-active { transition: opacity .2s .1s; }
+.fade-text-leave-active { transition: opacity .15s; }
+.fade-text-enter-from, .fade-text-leave-to { opacity: 0; }
 
 /* ── MOBILE ── */
 @media (max-width: 768px) {
   .sidebar {
     width: 72px;
   }
-  .sb-text,
-  .sb-badge,
-  .nav-label,
-  .sb-user-info,
-  .logo-text {
-    display: none !important;
-  }
-  .sb-toggle {
-    display: none;
-  }
+  .sb-text, .sb-badge, .nav-label, .sb-user-info, .logo-text { display: none !important; }
+  .sb-toggle { display: none; }
 }
 </style>

@@ -177,6 +177,8 @@ export default {
           this.$router.push('/employe/dashboard');
         } else if (user.role === 'responsable') {
           this.$router.push('/responsable/demandes');
+        } else if (user.role === 'admin') {
+          this.$router.push('/admin/dashboard');
         }
       } catch (err) {
         this.erreur = err.response?.data?.message || 'Email ou mot de passe incorrect.';

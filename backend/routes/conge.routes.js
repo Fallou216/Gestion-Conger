@@ -14,7 +14,7 @@ const {
 
 const { auth, authorizeRoles } = require('../middleware/auth');
 
-// 📦 Configuration multer pour upload de fichier (facultatif)
+// 📦 Configuration multer
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, 'uploads/');
@@ -25,29 +25,16 @@ const storage = multer.diskStorage({
     cb(null, uniqueName);
   }
 });
-
 const upload = multer({ storage });
 
 // 📌 EMPLOYÉ
-
-// Créer une demande avec pièce jointe facultative
 router.post('/', auth, authorizeRoles('employe'), upload.single('fichier'), creerConge);
-
-// Voir ses propres demandes
 router.get('/mes', auth, authorizeRoles('employe'), mesConges);
-
-// Supprimer une de ses propres demandes
 router.delete('/:id', auth, authorizeRoles('employe'), supprimerConge);
 
-// 📌 RESPONSABLE
-
-// Voir toutes les demandes
-router.get('/', auth, authorizeRoles('responsable'), tousLesConges);
-
-// Changer le statut (approuvé / refusé)
-router.put('/:id', auth, authorizeRoles('responsable'), changerStatut);
-
-// Supprimer une demande (même approuvée/refusée)
-router.delete('/admin/:id', auth, authorizeRoles('responsable'), responsableSupprimerConge);
+// 📌 RESPONSABLE + ADMIN
+router.get('/', auth, authorizeRoles('responsable', 'admin'), tousLesConges);
+router.put('/:id', auth, authorizeRoles('responsable', 'admin'), changerStatut);
+router.delete('/admin/:id', auth, authorizeRoles('responsable', 'admin'), responsableSupprimerConge);
 
 module.exports = router;

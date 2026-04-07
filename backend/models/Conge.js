@@ -14,10 +14,11 @@ const congeSchema = new mongoose.Schema({
     type: Date,
     required: true
   },
-  motif: {
+ motif: {
     type: String,
-    required: true
-  },
+    required: false,
+    default: ''
+},
   fichier: {
     type: String, // Le nom du fichier stocké (ex: 'nom.pdf')
     required: false

@@ -16,10 +16,10 @@ const generateToken = (user) => {
   );
 };
 
-// ✅ Inscription (register) + email de bienvenue
+// ✅ Inscription (register) — UNIQUEMENT pour les employés
 exports.register = async (req, res) => {
   try {
-    const { nom, prenom, email, motDePasse, role, service } = req.body;
+    const { nom, prenom, email, motDePasse, service } = req.body;
 
     // Vérifie si l'email existe déjà
     const existing = await User.findOne({ email });
@@ -27,13 +27,13 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: 'Email déjà utilisé.' });
     }
 
-    // Création d'un nouvel utilisateur
+    // Création — rôle forcé à 'employe' (sécurité)
     const user = new User({
       nom,
       prenom,
       email,
       motDePasse,
-      role,
+      role: 'employe',
       service: service || undefined
     });
 
@@ -42,7 +42,7 @@ exports.register = async (req, res) => {
     // 📧 Envoyer email de bienvenue
     sendWelcomeEmail(user);
 
-    return res.status(201).json({ message: 'Utilisateur créé avec succès.' });
+    return res.status(201).json({ message: 'Compte créé avec succès.' });
   } catch (err) {
     console.error('Erreur register :', err);
     res.status(500).json({ message: 'Erreur serveur.' });

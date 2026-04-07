@@ -9,29 +9,16 @@ const {
 
 const { auth, authorizeRoles } = require('../middleware/auth');
 
-/**
- * 🔓 Route publique (sans auth) — utilisée pendant l’inscription
- * POST /api/services
- * Permet de créer un service si l’utilisateur en crée un lors de l’inscription
- */
-router.post('/', createService);
-
-/**
- * 🔐 GET /api/services
- * Récupère tous les services — protégé pour les utilisateurs connectés (ou public si tu préfères)
- */
+// 🔓 GET — public (utilisé pendant l'inscription)
 router.get('/', getServices);
 
-/**
- * 🔐 PUT /api/services/:id
- * Modifier un service (réservé aux responsables)
- */
-router.put('/:id', auth, authorizeRoles('responsable'), updateService);
+// 🔐 POST — admin uniquement
+router.post('/', auth, authorizeRoles('admin'), createService);
 
-/**
- * 🔐 DELETE /api/services/:id
- * Supprimer un service (réservé aux responsables)
- */
-router.delete('/:id', auth, authorizeRoles('responsable'), deleteService);
+// 🔐 PUT — admin uniquement
+router.put('/:id', auth, authorizeRoles('admin'), updateService);
+
+// 🔐 DELETE — admin uniquement
+router.delete('/:id', auth, authorizeRoles('admin'), deleteService);
 
 module.exports = router;
