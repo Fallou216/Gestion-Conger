@@ -21,23 +21,29 @@ exports.register = async (req, res) => {
   try {
     const { nom, prenom, email, motDePasse, service } = req.body;
 
-    // Vérifie si l'email existe déjà
     const existing = await User.findOne({ email });
     if (existing) {
       return res.status(400).json({ message: 'Email déjà utilisé.' });
     }
 
-    // Création — rôle forcé à 'employe' (sécurité)
+    // Photo facultative
+    const photo = req.file ? req.file.filename : null;
+
     const user = new User({
       nom,
       prenom,
       email,
       motDePasse,
       role: 'employe',
-      service: service || undefined
+      service: service || undefined,
+      photo
     });
 
     await user.save();
+
+    // Calculer le solde initial
+    const { recalculerSolde } = require('../services/soldeService');
+    await recalculerSolde(user._id);
 
     // 📧 Envoyer email de bienvenue
     sendWelcomeEmail(user);
@@ -67,7 +73,8 @@ exports.login = async (req, res) => {
         id: user._id,
         nom: user.nom,
         prenom: user.prenom,
-        role: user.role
+        role: user.role,
+        photo: user.photo || null
       }
     });
   } catch (err) {

@@ -1,23 +1,33 @@
 const nodemailer = require('nodemailer');
+require('dotenv').config();
 
 // ── TRANSPORTEUR SMTP ──
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.EMAIL_PORT) || 587,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  tls: {
-    rejectUnauthorized: false
-  }
-});
+let transporter;
 
-// Vérifier la connexion au démarrage
-transporter.verify()
-  .then(() => console.log('✅ Service email prêt'))
-  .catch((err) => console.warn('⚠️ Email non configuré :', err.message));
+function getTransporter() {
+  if (!transporter) {
+    transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.EMAIL_PORT) || 587,
+      secure: false,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+  }
+  return transporter;
+}
+
+// Vérifier la connexion au démarrage (appelé après dotenv.config dans app.js)
+setTimeout(() => {
+  getTransporter().verify()
+    .then(() => console.log('✅ Service email prêt'))
+    .catch((err) => console.warn('⚠️ Email non configuré :', err.message));
+}, 500);
 
 // ── TEMPLATE HTML DE BASE ──
 const baseTemplate = (content, title) => `
@@ -106,7 +116,7 @@ exports.sendWelcomeEmail = async (user) => {
       ${buttonBlock('Se connecter', process.env.FRONTEND_URL || 'http://localhost:5173')}
     `;
 
-    await transporter.sendMail({
+    await getTransporter().sendMail({
       from: process.env.EMAIL_FROM || '"CongesPro" <noreply@congespro.com>',
       to: user.email,
       subject: '🎉 Bienvenue sur CongesPro !',
@@ -147,7 +157,7 @@ exports.sendNewRequestEmail = async (employe, conge, responsables) => {
     const emails = responsables.map(r => r.email);
     if (emails.length === 0) return;
 
-    await transporter.sendMail({
+    await getTransporter().sendMail({
       from: process.env.EMAIL_FROM || '"CongesPro" <noreply@congespro.com>',
       to: emails.join(','),
       subject: `📋 Nouvelle demande de congé — ${employe.prenom} ${employe.nom}`,
@@ -194,7 +204,7 @@ exports.sendStatusChangeEmail = async (employe, conge, statut) => {
       ${buttonBlock('Voir mes demandes', `${process.env.FRONTEND_URL || 'http://localhost:5173'}/employe/mes-demandes`)}
     `;
 
-    await transporter.sendMail({
+    await getTransporter().sendMail({
       from: process.env.EMAIL_FROM || '"CongesPro" <noreply@congespro.com>',
       to: employe.email,
       subject: `${statusIcon} Votre demande de congé a été ${statut}`,
@@ -228,7 +238,7 @@ exports.sendDeletedByAdminEmail = async (employe, conge) => {
       </p>
     `;
 
-    await transporter.sendMail({
+    await getTransporter().sendMail({
       from: process.env.EMAIL_FROM || '"CongesPro" <noreply@congespro.com>',
       to: employe.email,
       subject: '🗑️ Votre demande de congé a été supprimée',
@@ -266,7 +276,7 @@ exports.sendResetPasswordEmail = async (user, resetToken) => {
       </p>
     `;
 
-    await transporter.sendMail({
+    await getTransporter().sendMail({
       from: process.env.EMAIL_FROM || '"CongesPro" <noreply@congespro.com>',
       to: user.email,
       subject: '🔐 Réinitialisation de votre mot de passe',
@@ -301,7 +311,7 @@ exports.sendPasswordChangedEmail = async (user) => {
       ${buttonBlock('Se connecter', process.env.FRONTEND_URL || 'http://localhost:5173')}
     `;
 
-    await transporter.sendMail({
+    await getTransporter().sendMail({
       from: process.env.EMAIL_FROM || '"CongesPro" <noreply@congespro.com>',
       to: user.email,
       subject: '✅ Mot de passe modifié avec succès',
@@ -310,5 +320,79 @@ exports.sendPasswordChangedEmail = async (user) => {
     console.log(`📧 Email confirmation reset envoyé à ${user.email}`);
   } catch (err) {
     console.error('❌ Erreur envoi email confirmation reset :', err.message);
+  }
+};
+
+/**
+ * 7. EMAIL RAPPEL AVANT FIN DE CONGÉ — 3 jours avant la fin
+ */
+exports.sendCongeRappelEmail = async (employe, conge) => {
+  try {
+    const joursRestants = Math.max(0, Math.round((new Date(conge.dateFin) - new Date()) / 86400000));
+    const content = `
+      <p style="color:#94a3b8;font-size:14px;line-height:1.7;margin-top:12px;">
+        Bonjour <strong style="color:#e2e8f0;">${employe.prenom}</strong>,
+      </p>
+      <p style="color:#94a3b8;font-size:14px;line-height:1.7;">
+        Votre congé touche bientôt à sa fin. Il vous reste <strong style="color:#fb923c;">${joursRestants} jour(s)</strong>.
+      </p>
+      <div style="background:#0d1422;border-radius:12px;padding:20px;margin:20px 0;">
+        ${infoRow('Date début', formatDate(conge.dateDebut))}
+        ${infoRow('Date fin', formatDate(conge.dateFin))}
+        ${infoRow('Jours restants', joursRestants + ' jour(s)')}
+      </div>
+      <div style="background:rgba(251,146,60,.08);border:1px solid rgba(251,146,60,.2);border-radius:12px;padding:16px;margin-top:16px;">
+        <p style="color:#fb923c;font-size:13px;margin:0;font-weight:600;">
+          ⏰ Pensez à préparer votre retour au travail le ${formatDate(new Date(new Date(conge.dateFin).getTime() + 86400000))}
+        </p>
+      </div>
+    `;
+
+    await getTransporter().sendMail({
+      from: process.env.EMAIL_FROM || '"CongesPro" <noreply@congespro.com>',
+      to: employe.email,
+      subject: `⏰ Rappel — Votre congé se termine dans ${joursRestants} jour(s)`,
+      html: baseTemplate(content, 'Rappel de fin de congé'),
+    });
+    console.log(`📧 Rappel avant-fin envoyé à ${employe.email}`);
+  } catch (err) {
+    console.error('❌ Erreur envoi rappel avant-fin :', err.message);
+  }
+};
+
+/**
+ * 8. EMAIL FIN DE CONGÉ — le jour de la fin
+ */
+exports.sendCongeFinEmail = async (employe, conge) => {
+  try {
+    const content = `
+      <p style="color:#94a3b8;font-size:14px;line-height:1.7;margin-top:12px;">
+        Bonjour <strong style="color:#e2e8f0;">${employe.prenom}</strong>,
+      </p>
+      <p style="color:#94a3b8;font-size:14px;line-height:1.7;">
+        Votre période de congé <strong style="color:#4ade80;">prend fin aujourd'hui</strong>.
+      </p>
+      <div style="background:#0d1422;border-radius:12px;padding:20px;margin:20px 0;">
+        ${infoRow('Date début', formatDate(conge.dateDebut))}
+        ${infoRow('Date fin', formatDate(conge.dateFin))}
+        ${infoRow('Durée totale', (conge.dureeJours || '—') + ' jour(s)')}
+      </div>
+      <div style="background:rgba(74,222,128,.06);border:1px solid rgba(74,222,128,.15);border-radius:12px;padding:16px;margin-top:16px;">
+        <p style="color:#4ade80;font-size:13px;margin:0;font-weight:600;">
+          ✅ Bon retour au travail ! Nous espérons que vous avez passé un excellent congé.
+        </p>
+      </div>
+      ${buttonBlock('Voir mon solde', `${process.env.FRONTEND_URL || 'http://localhost:5173'}/employe/dashboard`)}
+    `;
+
+    await getTransporter().sendMail({
+      from: process.env.EMAIL_FROM || '"CongesPro" <noreply@congespro.com>',
+      to: employe.email,
+      subject: '✅ Votre congé prend fin aujourd\'hui — Bon retour !',
+      html: baseTemplate(content, 'Fin de congé'),
+    });
+    console.log(`📧 Email fin de congé envoyé à ${employe.email}`);
+  } catch (err) {
+    console.error('❌ Erreur envoi email fin congé :', err.message);
   }
 };

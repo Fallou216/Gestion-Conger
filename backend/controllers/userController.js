@@ -1,7 +1,8 @@
 const User = require('../models/User');
 const { sendWelcomeEmail } = require('../services/emailService');
+const { recalculerSolde } = require('../services/soldeService');
 
-// ✅ Lister tous les utilisateurs (admin + responsable)
+// ✅ Lister tous les utilisateurs
 exports.getAllUsers = async (req, res) => {
   try {
     const users = await User.find()
@@ -15,21 +16,17 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
-// ✅ Créer un utilisateur (admin uniquement — peut créer responsable OU employe)
+// ✅ Créer un utilisateur (admin uniquement)
 exports.createUser = async (req, res) => {
   try {
-    const { nom, prenom, email, motDePasse, role, service } = req.body;
+    const { nom, prenom, email, motDePasse, role, service, nbEnfantsMoins14, isMere } = req.body;
 
-    // Seul l'admin peut créer des comptes
     if (req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Seul l\'admin peut créer des comptes.' });
     }
-
-    // L'admin ne peut pas créer un autre admin
     if (role === 'admin') {
       return res.status(403).json({ message: 'Impossible de créer un compte admin.' });
     }
-
     if (!['employe', 'responsable'].includes(role)) {
       return res.status(400).json({ message: 'Rôle invalide.' });
     }
@@ -40,17 +37,17 @@ exports.createUser = async (req, res) => {
     }
 
     const user = new User({
-      nom,
-      prenom,
-      email,
-      motDePasse,
-      role,
-      service: service || undefined
+      nom, prenom, email, motDePasse, role,
+      service: service || undefined,
+      nbEnfantsMoins14: nbEnfantsMoins14 || 0,
+      isMere: isMere || false,
     });
 
     await user.save();
 
-    // 📧 Email de bienvenue
+    // Calculer le solde initial
+    await recalculerSolde(user._id);
+
     sendWelcomeEmail(user);
 
     res.status(201).json({ message: `${role === 'responsable' ? 'Responsable' : 'Employé'} créé avec succès.` });
@@ -68,22 +65,25 @@ exports.updateUser = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { nom, prenom, email, role, service } = req.body;
+    const { nom, prenom, email, role, service, nbEnfantsMoins14, isMere } = req.body;
 
-    // Empêcher de changer un rôle en admin
     if (role === 'admin') {
       return res.status(403).json({ message: 'Impossible d\'attribuer le rôle admin.' });
     }
 
-    const updated = await User.findByIdAndUpdate(
-      id,
-      { nom, prenom, email, role, service: service || undefined },
-      { new: true }
-    ).select('-motDePasse').populate('service', 'nom');
+    const updateData = { nom, prenom, email, role, service: service || undefined };
+    if (nbEnfantsMoins14 !== undefined) updateData.nbEnfantsMoins14 = nbEnfantsMoins14;
+    if (isMere !== undefined) updateData.isMere = isMere;
+
+    const updated = await User.findByIdAndUpdate(id, updateData, { new: true })
+      .select('-motDePasse').populate('service', 'nom');
 
     if (!updated) {
       return res.status(404).json({ message: 'Utilisateur non trouvé.' });
     }
+
+    // Recalculer le solde après modification
+    await recalculerSolde(id);
 
     res.json(updated);
   } catch (err) {
@@ -99,14 +99,8 @@ exports.deleteUser = async (req, res) => {
       return res.status(403).json({ message: 'Seul l\'admin peut supprimer des comptes.' });
     }
 
-    const { id } = req.params;
-
-    const user = await User.findById(id);
-    if (!user) {
-      return res.status(404).json({ message: 'Utilisateur non trouvé.' });
-    }
-
-    // Empêcher la suppression d'un admin
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé.' });
     if (user.role === 'admin') {
       return res.status(403).json({ message: 'Impossible de supprimer le compte admin.' });
     }

@@ -172,6 +172,8 @@ export default {
         localStorage.setItem('role', user.role);
         if (user.nom)    localStorage.setItem('nom', user.nom);
         if (user.prenom) localStorage.setItem('prenom', user.prenom);
+        if (user.photo)  localStorage.setItem('photo', user.photo);
+        else localStorage.removeItem('photo');
 
         if (user.role === 'employe') {
           this.$router.push('/employe/dashboard');

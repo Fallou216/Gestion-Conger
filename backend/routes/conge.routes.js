@@ -4,25 +4,18 @@ const multer = require('multer');
 const path = require('path');
 
 const {
-  creerConge,
-  mesConges,
-  tousLesConges,
-  changerStatut,
-  supprimerConge,
-  responsableSupprimerConge
+  creerConge, mesConges, monSolde, tousLesConges,
+  changerStatut, supprimerConge, responsableSupprimerConge
 } = require('../controllers/congeController');
 
 const { auth, authorizeRoles } = require('../middleware/auth');
 
 // 📦 Configuration multer
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/');
-  },
-  filename: function (req, file, cb) {
+  destination: (req, file, cb) => cb(null, 'uploads/'),
+  filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
-    const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
-    cb(null, uniqueName);
+    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
   }
 });
 const upload = multer({ storage });
@@ -30,6 +23,7 @@ const upload = multer({ storage });
 // 📌 EMPLOYÉ
 router.post('/', auth, authorizeRoles('employe'), upload.single('fichier'), creerConge);
 router.get('/mes', auth, authorizeRoles('employe'), mesConges);
+router.get('/solde', auth, authorizeRoles('employe'), monSolde);
 router.delete('/:id', auth, authorizeRoles('employe'), supprimerConge);
 
 // 📌 RESPONSABLE + ADMIN

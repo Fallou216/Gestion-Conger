@@ -16,8 +16,38 @@
       </div>
     </div>
 
+    <!-- SOLDE CONGÉS -->
+    <div class="solde-banner" v-if="soldeInfo">
+      <div class="solde-left">
+        <div class="solde-icon">🌴</div>
+        <div class="solde-text">
+          <div class="solde-title">Mon solde de congés</div>
+          <div class="solde-sub">Droit annuel : {{ soldeInfo.droitAnnuel }}j · Ancienneté : {{ soldeInfo.anneesCompletes }} an{{ soldeInfo.anneesCompletes > 1 ? 's' : '' }}</div>
+        </div>
+      </div>
+      <div class="solde-right">
+        <div class="solde-number">{{ soldeInfo.solde }}</div>
+        <div class="solde-unit">jours disponibles</div>
+      </div>
+      <div class="solde-bar-track">
+        <div class="solde-bar-fill" :style="{ width: soldePct + '%' }"></div>
+      </div>
+      <div class="solde-details">
+        <span class="sd-item"><span class="sd-dot sd-acquis"></span> Acquis : {{ soldeInfo.droitsAcquis }}j</span>
+        <span class="sd-item"><span class="sd-dot sd-pris"></span> Pris : {{ soldeInfo.joursConsommes }}j</span>
+        <span class="sd-item"><span class="sd-dot sd-rest"></span> Restant : {{ soldeInfo.solde }}j</span>
+      </div>
+    </div>
+
     <!-- KPI CARDS -->
     <div class="kpi-grid">
+      <div class="kpi kpi-solde">
+        <div class="kpi-glow"></div>
+        <div class="kpi-icon-wrap">🌴</div>
+        <div class="kpi-val">{{ soldeInfo ? soldeInfo.solde : '—' }}</div>
+        <div class="kpi-lbl">Solde congés</div>
+        <div class="kpi-trend">Disponible</div>
+      </div>
       <div class="kpi kpi-total">
         <div class="kpi-glow"></div>
         <div class="kpi-icon-wrap">📋</div>
@@ -38,13 +68,6 @@
         <div class="kpi-val">{{ nbApprouve }}</div>
         <div class="kpi-lbl">Approuvées</div>
         <div class="kpi-trend">{{ pctVal(nbApprouve) }}%</div>
-      </div>
-      <div class="kpi kpi-days">
-        <div class="kpi-glow"></div>
-        <div class="kpi-icon-wrap">🗓️</div>
-        <div class="kpi-val">{{ totalJours }}</div>
-        <div class="kpi-lbl">Jours posés</div>
-        <div class="kpi-trend">Cette année</div>
       </div>
     </div>
 
@@ -247,6 +270,7 @@ export default {
       toast: { visible: false, message: '', type: 'success' },
       doughnutChart: null,
       barChartInstance: null,
+      soldeInfo: null,
     };
   },
 
@@ -268,6 +292,10 @@ export default {
     },
     nbAttente()  { return this.mesConges.filter(c => c.statut === 'en attente').length; },
     nbApprouve() { return this.mesConges.filter(c => c.statut === 'approuvé').length; },
+    soldePct() {
+      if (!this.soldeInfo || !this.soldeInfo.droitsAcquis) return 0;
+      return Math.round((this.soldeInfo.solde / this.soldeInfo.droitsAcquis) * 100);
+    },
     totalJours() {
       const annee = new Date().getFullYear();
       return this.mesConges
@@ -343,8 +371,16 @@ export default {
         this.showToast('Erreur lors du chargement', 'error');
       } finally {
         this.chargement = false;
-        // Attendre que le DOM soit rendu puis dessiner
         setTimeout(() => { this.renderCharts(); }, 300);
+      }
+    },
+
+    async chargerSolde() {
+      try {
+        const res = await axios.get('/conges/solde');
+        this.soldeInfo = res.data;
+      } catch {
+        console.error('Erreur chargement solde');
       }
     },
 
@@ -447,6 +483,7 @@ export default {
 
   mounted() {
     this.chargerMesConges();
+    this.chargerSolde();
   },
   beforeUnmount() {
     if (this.doughnutChart) this.doughnutChart.destroy();
@@ -470,25 +507,51 @@ export default {
 .user-av { width:30px; height:30px; border-radius:50%; background:linear-gradient(135deg,#4f46e5,#7c3aed); color:white; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; }
 .user-name { font-size:13px; color:#94a3b8; font-weight:600; }
 
+/* SOLDE BANNER */
+.solde-banner {
+  background: linear-gradient(135deg, #1e1b4b, #312e81);
+  border: 1px solid rgba(99,102,241,.3);
+  border-radius: 20px; padding: 24px 28px;
+  margin-bottom: 24px; position: relative; overflow: hidden;
+}
+.solde-left { display:flex; align-items:center; gap:14px; }
+.solde-icon { font-size:32px; }
+.solde-title { font-size:16px; font-weight:800; color:#f8fafc; }
+.solde-sub { font-size:11px; color:#94a3b8; margin-top:3px; }
+.solde-right { position:absolute; top:24px; right:28px; text-align:right; }
+.solde-number { font-size:42px; font-weight:800; color:#a5b4fc; line-height:1; letter-spacing:-.04em; }
+.solde-unit { font-size:11px; color:#818cf8; font-weight:600; text-transform:uppercase; letter-spacing:.08em; margin-top:4px; }
+.solde-bar-track { height:6px; background:rgba(255,255,255,.08); border-radius:99px; margin-top:20px; overflow:hidden; }
+.solde-bar-fill { height:100%; background:linear-gradient(90deg,#4f46e5,#818cf8); border-radius:99px; transition:width .8s ease; }
+.solde-details { display:flex; gap:20px; margin-top:12px; }
+.sd-item { display:flex; align-items:center; gap:6px; font-size:11px; color:#94a3b8; font-weight:600; }
+.sd-dot { width:8px; height:8px; border-radius:50%; }
+.sd-acquis { background:#4f46e5; }
+.sd-pris { background:#f87171; }
+.sd-rest { background:#4ade80; }
+
 /* KPI */
 .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
 .kpi { border-radius:20px; padding:24px; position:relative; overflow:hidden; transition:transform .25s, box-shadow .25s; }
 .kpi:hover { transform:translateY(-4px); box-shadow:0 12px 40px rgba(0,0,0,.4); }
-.kpi-total { background:linear-gradient(145deg,#1e1b4b,#312e81); border:1px solid rgba(99,102,241,.25); }
+.kpi-solde { background:linear-gradient(145deg,#1e1b4b,#312e81); border:1px solid rgba(99,102,241,.35); }
+.kpi-solde .kpi-glow { background:#a5b4fc; }
+.kpi-solde .kpi-icon-wrap { background:rgba(79,70,229,.3); }
+.kpi-solde .kpi-trend { background:rgba(79,70,229,.4); color:#c4b5fd; }
+.kpi-total { background:linear-gradient(145deg,#0c1a2e,#0c2a4a); border:1px solid rgba(56,130,221,.2); }
 .kpi-wait  { background:linear-gradient(145deg,#1c1007,#431407); border:1px solid rgba(234,88,12,.2); }
 .kpi-ok    { background:linear-gradient(145deg,#052e16,#14532d); border:1px solid rgba(22,163,74,.2); }
-.kpi-days  { background:linear-gradient(145deg,#0c1a2e,#0c2a4a); border:1px solid rgba(56,130,221,.2); }
 .kpi-glow { position:absolute; top:-24px; right:-24px; width:90px; height:90px; border-radius:50%; opacity:.2; pointer-events:none; }
-.kpi-total .kpi-glow { background:#818cf8; } .kpi-wait .kpi-glow { background:#fb923c; }
-.kpi-ok .kpi-glow { background:#4ade80; } .kpi-days .kpi-glow { background:#60a5fa; }
+.kpi-total .kpi-glow { background:#60a5fa; } .kpi-wait .kpi-glow { background:#fb923c; }
+.kpi-ok .kpi-glow { background:#4ade80; }
 .kpi-icon-wrap { width:44px; height:44px; border-radius:13px; display:flex; align-items:center; justify-content:center; font-size:22px; margin-bottom:18px; }
-.kpi-total .kpi-icon-wrap { background:rgba(79,70,229,.25); } .kpi-wait .kpi-icon-wrap { background:rgba(234,88,12,.25); }
-.kpi-ok .kpi-icon-wrap { background:rgba(22,163,74,.25); } .kpi-days .kpi-icon-wrap { background:rgba(56,130,221,.25); }
+.kpi-total .kpi-icon-wrap { background:rgba(56,130,221,.25); } .kpi-wait .kpi-icon-wrap { background:rgba(234,88,12,.25); }
+.kpi-ok .kpi-icon-wrap { background:rgba(22,163,74,.25); }
 .kpi-val { font-size:38px; font-weight:800; letter-spacing:-.04em; color:#f8fafc; line-height:1; }
 .kpi-lbl { font-size:11px; color:#94a3b8; font-weight:600; margin-top:5px; text-transform:uppercase; letter-spacing:.08em; }
 .kpi-trend { position:absolute; bottom:18px; right:18px; font-size:11px; font-weight:700; padding:4px 10px; border-radius:99px; }
-.kpi-total .kpi-trend { background:rgba(79,70,229,.3); color:#a5b4fc; } .kpi-wait .kpi-trend { background:rgba(234,88,12,.3); color:#fb923c; }
-.kpi-ok .kpi-trend { background:rgba(22,163,74,.3); color:#4ade80; } .kpi-days .kpi-trend { background:rgba(56,130,221,.3); color:#93c5fd; }
+.kpi-total .kpi-trend { background:rgba(56,130,221,.3); color:#93c5fd; } .kpi-wait .kpi-trend { background:rgba(234,88,12,.3); color:#fb923c; }
+.kpi-ok .kpi-trend { background:rgba(22,163,74,.3); color:#4ade80; }
 
 /* CHARTS */
 .charts-grid { grid-template-columns:1fr 2fr; gap:20px; margin-bottom:24px; }

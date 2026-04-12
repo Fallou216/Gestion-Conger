@@ -112,6 +112,23 @@
                 </select>
               </div>
             </div>
+            <div class="field-group">
+              <label class="field-label">Enfants &lt; 14 ans</label>
+              <div class="input-wrap" :class="{ focused: focus.enfants }">
+                <span class="input-icon">👶</span>
+                <input v-model.number="formAjout.nbEnfantsMoins14" type="number" min="0" max="20" placeholder="0" class="field-input"
+                  @focus="focus.enfants = true" @blur="focus.enfants = false" />
+              </div>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Mère de famille</label>
+              <div class="toggle-row" @click="formAjout.isMere = !formAjout.isMere">
+                <div :class="['toggle-switch', { active: formAjout.isMere }]">
+                  <div class="toggle-knob"></div>
+                </div>
+                <span class="toggle-label">{{ formAjout.isMere ? 'Oui' : 'Non' }}</span>
+              </div>
+            </div>
           </div>
           <button
             class="submit-btn"
@@ -163,6 +180,7 @@
               <th>Email</th>
               <th>Rôle</th>
               <th>Service</th>
+              <th>Solde</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -190,6 +208,7 @@
                     <option v-for="s in services" :key="s._id" :value="s._id">{{ s.nom }}</option>
                   </select>
                 </td>
+                <td><span class="no-data">—</span></td>
                 <td>
                   <div class="act-btns">
                     <button class="abtn abtn-ok" @click="validerEdition(user._id)" title="Valider">✓</button>
@@ -217,6 +236,7 @@
                   </span>
                 </td>
                 <td><span class="service-text">{{ user.service?.nom || '—' }}</span></td>
+                <td><span class="solde-badge" v-if="user.role === 'employe'">{{ user.soldeConges || 0 }}j</span><span v-else class="no-data">—</span></td>
                 <td>
                   <div class="act-btns">
                     <button class="abtn abtn-edit" @click="activerEdition(user)" title="Modifier">✏️</button>
@@ -269,11 +289,13 @@ export default {
       formEdit: {},
       formAjout: {
         nom: '', prenom: '', email: '',
-        motDePasse: '', role: '', service: ''
+        motDePasse: '', role: '', service: '',
+        nbEnfantsMoins14: 0, isMere: false
       },
       focus: {
         nom: false, prenom: false, email: false,
-        mdp: false, role: false, service: false
+        mdp: false, role: false, service: false,
+        enfants: false
       },
       toast: { visible: false, message: '', type: 'success' },
     };
@@ -333,7 +355,10 @@ export default {
     async ajouterUtilisateur() {
       try {
         await axios.post('/users', this.formAjout);
-        this.formAjout = { nom: '', prenom: '', email: '', motDePasse: '', role: '', service: '' };
+        this.formAjout = {
+          nom: '', prenom: '', email: '', motDePasse: '', role: '', service: '',
+          nbEnfantsMoins14: 0, isMere: false
+        };
         this.showFormAjout = false;
         this.showToast('Employé ajouté avec succès', 'success');
         await this.chargerUtilisateurs();
@@ -543,6 +568,18 @@ td { padding: 15px 22px; vertical-align: middle; }
 .rb-emp { background: rgba(16,185,129,.12); color: #6ee7b7; border: 1px solid rgba(16,185,129,.2); }
 
 .service-text { color: #64748b; font-size: 12px; font-weight: 500; }
+.no-data { color: #334155; }
+
+/* Toggle switch */
+.toggle-row { display:flex; align-items:center; gap:12px; cursor:pointer; padding:10px 0; }
+.toggle-switch { width:42px; height:24px; border-radius:99px; background:#1e293b; border:1px solid #334155; position:relative; transition:all .25s; }
+.toggle-switch.active { background:rgba(79,70,229,.3); border-color:#4f46e5; }
+.toggle-knob { width:18px; height:18px; border-radius:50%; background:#475569; position:absolute; top:2px; left:2px; transition:all .25s; }
+.toggle-switch.active .toggle-knob { left:20px; background:#818cf8; }
+.toggle-label { font-size:13px; color:#94a3b8; font-weight:600; }
+
+/* Solde badge */
+.solde-badge { background:rgba(79,70,229,.15); color:#a5b4fc; font-size:12px; font-weight:700; padding:4px 12px; border-radius:99px; border:1px solid rgba(79,70,229,.2); white-space:nowrap; }
 
 /* ── INLINE EDIT ── */
 .edit-row { display: flex; gap: 8px; }

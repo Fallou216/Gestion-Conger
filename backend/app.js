@@ -4,8 +4,9 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const path = require('path');
 const seedAdmin = require('./config/seedAdmin');
+const { recalculerTousLesSoldes } = require('./services/soldeService');
+const { verifierRappels } = require('./services/rappelService');
 
-// 🔹 Charger les variables d'environnement
 dotenv.config();
 
 const app = express();
@@ -17,10 +18,10 @@ app.use(cors({
   credentials: true
 }));
 
-// 🔹 Pour servir les fichiers uploadés
+// 🔹 Fichiers uploadés
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// 🔹 Connexion à MongoDB + création admin par défaut
+// 🔹 Connexion MongoDB + init
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
@@ -28,30 +29,49 @@ mongoose.connect(process.env.MONGO_URI, {
 .then(async () => {
   console.log('✅ MongoDB connecté');
   await seedAdmin();
+
+  // Recalculer les soldes au démarrage
+  await recalculerTousLesSoldes();
+
+  // Vérifier les rappels au démarrage
+  await verifierRappels();
 })
 .catch(err => {
   console.error('❌ Erreur de connexion MongoDB :', err.message);
   process.exit(1);
 });
 
-// 🔹 Routes importées
+// 🔹 Routes
 const authRoutes = require('./routes/auth.routes');
 const serviceRoutes = require('./routes/service.routes');
 const userRoutes = require('./routes/user.routes');
 const congeRoutes = require('./routes/conge.routes');
+const profileRoutes = require('./routes/profile.routes');
+const notificationRoutes = require('./routes/notification.routes');
+const statsRoutes = require('./routes/stats.routes');
 
-// 🔹 Définition des routes API
 app.use('/api/auth', authRoutes);
 app.use('/api/services', serviceRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/conges', congeRoutes);
+app.use('/api/profile', profileRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/stats', statsRoutes);
+
+// 🔹 Servir les photos de profil
+app.use('/uploads/photos', express.static(path.join(__dirname, 'uploads', 'photos')));
 
 // 🔹 Route test
-app.get('/api/ping', (req, res) => {
-  res.send('✅ API opérationnelle');
-});
+app.get('/api/ping', (req, res) => res.send('✅ API opérationnelle'));
 
-// 🔹 Démarrage du serveur
+// 🔹 Tâches planifiées — toutes les 12 heures
+setInterval(async () => {
+  console.log('🔄 Tâche planifiée : recalcul soldes + rappels');
+  await recalculerTousLesSoldes();
+  await verifierRappels();
+}, 12 * 60 * 60 * 1000); // 12 heures
+
+// 🔹 Démarrage
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Serveur lancé sur http://localhost:${PORT}`);

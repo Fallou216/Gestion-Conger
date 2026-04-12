@@ -4,7 +4,15 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-const { register, login, forgotPassword, resetPassword } = require('../controllers/authController');
+const {
+  getProfile,
+  updateProfile,
+  changePassword,
+  uploadPhoto,
+  deletePhoto
+} = require('../controllers/profileController');
+
+const { auth } = require('../middleware/auth');
 
 // 📁 Créer le dossier photos s'il n'existe pas
 const photosDir = path.join(__dirname, '..', 'uploads', 'photos');
@@ -12,12 +20,12 @@ if (!fs.existsSync(photosDir)) {
   fs.mkdirSync(photosDir, { recursive: true });
 }
 
-// 📦 Multer pour photo à l'inscription
+// 📦 Multer pour les photos de profil
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, photosDir),
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
-    cb(null, `photo-register-${Date.now()}${ext}`);
+    cb(null, `photo-${req.user.id}-${Date.now()}${ext}`);
   }
 });
 
@@ -25,21 +33,16 @@ const fileFilter = (req, file, cb) => {
   const allowed = ['.jpg', '.jpeg', '.png', '.webp'];
   const ext = path.extname(file.originalname).toLowerCase();
   if (allowed.includes(ext)) cb(null, true);
-  else cb(new Error('Format non autorisé.'), false);
+  else cb(new Error('Format non autorisé. Utilisez JPG, PNG ou WebP.'), false);
 };
 
-const upload = multer({ storage, fileFilter, limits: { fileSize: 2 * 1024 * 1024 } });
+const upload = multer({ storage, fileFilter, limits: { fileSize: 2 * 1024 * 1024 } }); // Max 2 Mo
 
-// ✅ Inscription avec photo facultative
-router.post('/register', upload.single('photo'), register);
-
-// ✅ Connexion
-router.post('/login', login);
-
-// ✅ Mot de passe oublié
-router.post('/forgot-password', forgotPassword);
-
-// ✅ Réinitialiser le mot de passe
-router.post('/reset-password/:token', resetPassword);
+// 📌 Routes
+router.get('/', auth, getProfile);
+router.put('/', auth, updateProfile);
+router.put('/password', auth, changePassword);
+router.post('/photo', auth, upload.single('photo'), uploadPhoto);
+router.delete('/photo', auth, deletePhoto);
 
 module.exports = router;
