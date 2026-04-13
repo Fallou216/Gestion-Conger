@@ -8,6 +8,14 @@
         <h1 class="page-title">Tableau de bord</h1>
       </div>
       <div class="topbar-right">
+        <div class="export-btns">
+          <button class="export-btn export-excel" @click="exportExcel" title="Export Excel">
+            📊 Excel
+          </button>
+          <button class="export-btn export-pdf" @click="exportPDF" title="Export PDF">
+            📄 PDF
+          </button>
+        </div>
         <div class="date-pill">📅 {{ todayLabel }}</div>
         <div class="notif-btn" @click="filtreStatut = 'en attente'" title="Demandes en attente">
           🔔
@@ -570,6 +578,38 @@ export default {
       this.toast = { visible: true, message, type };
       setTimeout(() => { this.toast.visible = false; }, 3500);
     },
+
+    async exportExcel() {
+      try {
+        const params = this.filtreStatut !== 'tous' ? `?statut=${this.filtreStatut}` : '';
+        const res = await axios.get(`/export/excel${params}`, { responseType: 'blob' });
+        const url = window.URL.createObjectURL(new Blob([res.data]));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `conges_${new Date().toISOString().split('T')[0]}.xlsx`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        this.showToast('Export Excel téléchargé', 'success');
+      } catch {
+        this.showToast('Erreur export Excel', 'error');
+      }
+    },
+
+    async exportPDF() {
+      try {
+        const params = this.filtreStatut !== 'tous' ? `?statut=${this.filtreStatut}` : '';
+        const res = await axios.get(`/export/pdf${params}`, { responseType: 'blob' });
+        const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `conges_${new Date().toISOString().split('T')[0]}.pdf`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        this.showToast('Export PDF téléchargé', 'success');
+      } catch {
+        this.showToast('Erreur export PDF', 'error');
+      }
+    },
   },
 
   mounted() { this.chargerConges(); },
@@ -592,6 +632,13 @@ export default {
 .date-pill { background:#111827; border:1px solid #1e293b; border-radius:99px; padding:9px 18px; font-size:12px; color:#94a3b8; font-weight:500; text-transform:capitalize; }
 .notif-btn { position:relative; width:42px; height:42px; background:#111827; border:1px solid #1e293b; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:18px; cursor:pointer; transition:border-color .2s; }
 .notif-btn:hover { border-color:#4f46e5; }
+
+/* Export buttons */
+.export-btns { display:flex; gap:6px; }
+.export-btn { padding:8px 16px; border-radius:10px; border:1px solid var(--border-light, #334155); background:var(--bg-card, #111827); color:var(--text-muted, #94a3b8); font-size:12px; font-weight:600; font-family:'Sora',sans-serif; cursor:pointer; transition:all .2s; display:flex; align-items:center; gap:6px; }
+.export-btn:hover { transform:translateY(-1px); }
+.export-excel:hover { border-color:#16a34a; color:#4ade80; background:rgba(74,222,128,.08); }
+.export-pdf:hover { border-color:#dc2626; color:#f87171; background:rgba(248,113,113,.08); }
 .notif-dot { position:absolute; top:-5px; right:-5px; width:18px; height:18px; background:#f43f5e; border-radius:50%; border:2px solid #0a0f1e; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:800; color:white; }
 
 /* KPI */

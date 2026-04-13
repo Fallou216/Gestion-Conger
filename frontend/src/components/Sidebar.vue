@@ -79,6 +79,16 @@
     <!-- SPACER -->
     <div class="sb-spacer"></div>
 
+    <!-- THEME TOGGLE -->
+    <div class="sb-theme-section">
+      <button class="sb-theme-btn" @click="toggleTheme" :title="collapsed ? (isDark ? 'Mode clair' : 'Mode sombre') : ''">
+        <span class="sb-icon theme-icon" :class="{ rotate: themeAnimating }">{{ isDark ? '☀️' : '🌙' }}</span>
+        <transition name="fade-text">
+          <span class="sb-text" v-if="!collapsed">{{ isDark ? 'Mode clair' : 'Mode sombre' }}</span>
+        </transition>
+      </button>
+    </div>
+
     <!-- USER SECTION -->
     <div class="sb-user">
       <div class="sb-user-info" v-if="!collapsed">
@@ -128,6 +138,8 @@ export default {
       notifications: [],
       notifCount: 0,
       notifInterval: null,
+      isDark: true,
+      themeAnimating: false,
     };
   },
   computed: {
@@ -187,6 +199,24 @@ export default {
   methods: {
     isActive(path) {
       return this.$route.path === path;
+    },
+    toggleTheme() {
+      this.themeAnimating = true;
+      setTimeout(() => { this.themeAnimating = false; }, 500);
+      this.isDark = !this.isDark;
+      const theme = this.isDark ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('theme', theme);
+    },
+    initTheme() {
+      const saved = localStorage.getItem('theme');
+      if (saved === 'light') {
+        this.isDark = false;
+        document.documentElement.setAttribute('data-theme', 'light');
+      } else {
+        this.isDark = true;
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
     },
     logout() {
       ['token', 'role', 'nom', 'prenom', 'photo'].forEach(k => localStorage.removeItem(k));
@@ -265,6 +295,7 @@ export default {
     },
   },
   mounted() {
+    this.initTheme();
     document.addEventListener('click', this.handleOutsideNotif);
     this.chargerNotifCount();
     // Polling toutes les 30 secondes
@@ -396,6 +427,20 @@ export default {
   min-width: 18px;
   text-align: center;
 }
+
+/* ── THEME TOGGLE ── */
+.sb-theme-section { padding: 4px 0; }
+.sb-theme-btn {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 14px; border-radius: 12px;
+  border: none; background: none; cursor: pointer;
+  font-size: 13px; font-weight: 600; color: var(--text-muted, #64748b);
+  font-family: 'Sora', sans-serif; width: 100%;
+  transition: all .2s; white-space: nowrap;
+}
+.sb-theme-btn:hover { background: var(--bg-input, #1e293b); color: var(--text-primary, #e2e8f0); }
+.theme-icon { transition: transform .5s cubic-bezier(.34,1.56,.64,1); }
+.theme-icon.rotate { transform: rotate(360deg); }
 
 /* ── NOTIFICATIONS ── */
 .sb-notif-section { padding: 8px 0; }

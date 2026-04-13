@@ -8,6 +8,9 @@
         <h1 class="page-title">Mes demandes</h1>
       </div>
       <div class="topbar-right">
+        <button class="export-btn" @click="exportMesConges" title="Exporter en Excel">
+          📊 Exporter
+        </button>
         <div class="date-pill">📅 {{ todayLabel }}</div>
       </div>
     </div>
@@ -241,6 +244,21 @@ export default {
       this.toast = { visible: true, message, type };
       setTimeout(() => { this.toast.visible = false; }, 3500);
     },
+
+    async exportMesConges() {
+      try {
+        const res = await axios.get('/export/excel/mes', { responseType: 'blob' });
+        const url = window.URL.createObjectURL(new Blob([res.data]));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `mes_conges_${new Date().toISOString().split('T')[0]}.xlsx`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        this.showToast('Export téléchargé', 'success');
+      } catch {
+        this.showToast('Erreur export', 'error');
+      }
+    },
   },
 
   mounted() { this.chargerDemandes(); }
@@ -263,6 +281,8 @@ export default {
 .breadcrumb { font-size:11px; color:#4a5568; letter-spacing:.12em; text-transform:uppercase; font-weight:600; margin-bottom:5px; }
 .page-title { font-size:28px; font-weight:800; color:#f7fafc; letter-spacing:-.025em; margin:0; }
 .date-pill { background:#111827; border:1px solid #1e293b; border-radius:99px; padding:9px 18px; font-size:12px; color:#94a3b8; font-weight:500; text-transform:capitalize; }
+.export-btn { padding:8px 16px; border-radius:10px; border:1px solid #334155; background:#111827; color:#94a3b8; font-size:12px; font-weight:600; font-family:'Sora',sans-serif; cursor:pointer; transition:all .2s; display:flex; align-items:center; gap:6px; }
+.export-btn:hover { border-color:#16a34a; color:#4ade80; background:rgba(74,222,128,.08); transform:translateY(-1px); }
 
 /* KPI */
 .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
