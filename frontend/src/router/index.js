@@ -19,6 +19,7 @@ import DashboardResponsable from '../views/DashboardResponsable.vue';
 import DashboardAdmin       from '../views/DashboardAdmin.vue';
 import Services             from '../views/Services.vue';
 import Utilisateurs         from '../views/Utilisateurs.vue';
+import Historique           from '../views/Historique.vue';
 
 // Vue partagée
 import Calendrier from '../views/Calendrier.vue';
@@ -72,6 +73,7 @@ const routes = [
       { path: 'services',    name: 'AdminServices',        component: Services },
       { path: 'demandes',    name: 'AdminDemandes',        component: DashboardResponsable },
       { path: 'calendrier',  name: 'CalendrierAdmin',      component: Calendrier },
+      { path: 'historique',  name: 'Historique',            component: Historique },
       { path: 'profil',      name: 'ProfilAdmin',          component: Profil },
     ]
   },

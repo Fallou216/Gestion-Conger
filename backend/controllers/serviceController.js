@@ -1,19 +1,20 @@
 const Service = require('../models/Service');
+const { logAction } = require('../services/activityService');
 
 // ✅ Créer un nouveau service
 exports.createService = async (req, res) => {
   try {
     const { nom } = req.body;
 
-    // Vérifier si le service existe déjà
     const existing = await Service.findOne({ nom: nom.trim() });
     if (existing) {
       return res.status(400).json({ message: 'Service déjà existant.' });
     }
 
-    // Créer un nouveau service
     const service = new Service({ nom: nom.trim() });
     await service.save();
+
+    logAction(req.user.id, 'service_cree', `Service créé : ${nom.trim()}`, nom.trim(), req);
 
     res.status(201).json(service);
   } catch (err) {
@@ -49,6 +50,8 @@ exports.updateService = async (req, res) => {
       return res.status(404).json({ message: 'Service non trouvé.' });
     }
 
+    logAction(req.user.id, 'service_modifie', `Service modifié : ${nom.trim()}`, nom.trim(), req);
+
     res.json(updated);
   } catch (err) {
     console.error('Erreur updateService :', err);
@@ -65,6 +68,8 @@ exports.deleteService = async (req, res) => {
     if (!deleted) {
       return res.status(404).json({ message: 'Service non trouvé.' });
     }
+
+    logAction(req.user.id, 'service_supprime', `Service supprimé : ${deleted.nom}`, deleted.nom, req);
 
     res.json({ message: 'Service supprimé.' });
   } catch (err) {

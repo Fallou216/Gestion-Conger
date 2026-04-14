@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const { sendWelcomeEmail } = require('../services/emailService');
 const { recalculerSolde } = require('../services/soldeService');
+const { logAction } = require('../services/activityService');
 
 // ✅ Lister tous les utilisateurs
 exports.getAllUsers = async (req, res) => {
@@ -50,6 +51,8 @@ exports.createUser = async (req, res) => {
 
     sendWelcomeEmail(user);
 
+    logAction(req.user.id, 'utilisateur_cree', `${role} créé : ${prenom} ${nom} (${email})`, email, req);
+
     res.status(201).json({ message: `${role === 'responsable' ? 'Responsable' : 'Employé'} créé avec succès.` });
   } catch (err) {
     console.error('Erreur createUser :', err);
@@ -85,6 +88,8 @@ exports.updateUser = async (req, res) => {
     // Recalculer le solde après modification
     await recalculerSolde(id);
 
+    logAction(req.user.id, 'utilisateur_modifie', `Utilisateur modifié : ${updated.prenom} ${updated.nom}`, updated.email, req);
+
     res.json(updated);
   } catch (err) {
     console.error('Erreur updateUser :', err);
@@ -106,6 +111,9 @@ exports.deleteUser = async (req, res) => {
     }
 
     await user.deleteOne();
+
+    logAction(req.user.id, 'utilisateur_supprime', `Utilisateur supprimé : ${user.prenom} ${user.nom} (${user.email})`, user.email, req);
+
     res.json({ message: 'Utilisateur supprimé.' });
   } catch (err) {
     console.error('Erreur deleteUser :', err);

@@ -50,6 +50,8 @@ const profileRoutes = require('./routes/profile.routes');
 const notificationRoutes = require('./routes/notification.routes');
 const statsRoutes = require('./routes/stats.routes');
 const exportRoutes = require('./routes/export.routes');
+const feriesRoutes = require('./routes/feries.routes');
+const activityRoutes = require('./routes/activity.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/services', serviceRoutes);
@@ -59,6 +61,8 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/export', exportRoutes);
+app.use('/api/feries', feriesRoutes);
+app.use('/api/activity', activityRoutes);
 
 // 🔹 Servir les photos de profil
 app.use('/uploads/photos', express.static(path.join(__dirname, 'uploads', 'photos')));

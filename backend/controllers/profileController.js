@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const path = require('path');
 const fs = require('fs');
+const { logAction } = require('../services/activityService');
 
 // ✅ Voir mon profil
 exports.getProfile = async (req, res) => {
@@ -40,6 +41,8 @@ exports.updateProfile = async (req, res) => {
 
     if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé.' });
 
+    logAction(req.user.id, 'profil_modifie', `Profil mis à jour : ${user.prenom} ${user.nom}`, '', req);
+
     res.json({ message: 'Profil mis à jour avec succès.', user });
   } catch (err) {
     console.error('Erreur updateProfile :', err);
@@ -73,6 +76,8 @@ exports.changePassword = async (req, res) => {
     user.motDePasse = nouveauMotDePasse;
     await user.save();
 
+    logAction(req.user.id, 'mot_de_passe_change', 'Mot de passe modifié', '', req);
+
     res.json({ message: 'Mot de passe modifié avec succès.' });
   } catch (err) {
     console.error('Erreur changePassword :', err);
@@ -99,6 +104,8 @@ exports.uploadPhoto = async (req, res) => {
     user.photo = req.file.filename;
     await user.save({ validateBeforeSave: false });
 
+    logAction(req.user.id, 'photo_uploadee', 'Photo de profil mise à jour', '', req);
+
     res.json({ message: 'Photo mise à jour.', photo: user.photo });
   } catch (err) {
     console.error('Erreur uploadPhoto :', err);
@@ -118,6 +125,8 @@ exports.deletePhoto = async (req, res) => {
       user.photo = null;
       await user.save({ validateBeforeSave: false });
     }
+
+    logAction(req.user.id, 'photo_supprimee', 'Photo de profil supprimée', '', req);
 
     res.json({ message: 'Photo supprimée.' });
   } catch (err) {

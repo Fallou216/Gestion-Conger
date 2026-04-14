@@ -6,6 +6,7 @@ const {
   sendResetPasswordEmail,
   sendPasswordChangedEmail
 } = require('../services/emailService');
+const { logAction } = require('../services/activityService');
 
 // Fonction pour générer un token JWT
 const generateToken = (user) => {
@@ -48,6 +49,9 @@ exports.register = async (req, res) => {
     // 📧 Envoyer email de bienvenue
     sendWelcomeEmail(user);
 
+    // 📝 Log inscription
+    logAction(user._id, 'inscription', `Inscription de ${user.prenom} ${user.nom}`, '', req);
+
     return res.status(201).json({ message: 'Compte créé avec succès.' });
   } catch (err) {
     console.error('Erreur register :', err);
@@ -66,6 +70,9 @@ exports.login = async (req, res) => {
     }
 
     const token = generateToken(user);
+
+    // 📝 Log connexion
+    logAction(user._id, 'connexion', `Connexion de ${user.prenom} ${user.nom}`, '', req);
 
     res.json({
       token,

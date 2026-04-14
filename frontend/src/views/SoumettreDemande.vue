@@ -103,16 +103,33 @@
           </div>
 
           <!-- Preview durée -->
-          <div class="duree-preview" v-if="dateDebut && dateFin && dureePreview > 0">
+          <div class="duree-preview" v-if="dateDebut && dateFin && joursOuvrables !== null">
             <span class="duree-icon">⏱️</span>
-            <span class="duree-text">Durée : <strong>{{ isDemiJournee ? '½' : dureePreview }} jour{{ dureePreview > 1 && !isDemiJournee ? 's' : '' }}</strong></span>
+            <span class="duree-text">Durée : <strong>{{ isDemiJournee ? '½' : joursOuvrables }} jour{{ joursOuvrables > 1 && !isDemiJournee ? 's' : '' }} ouvrable{{ joursOuvrables > 1 ? 's' : '' }}</strong></span>
             <span class="duree-tag" v-if="categorie === 'exceptionnel'">Non déductible</span>
-            <span class="duree-tag tag-solde" v-if="categorie === 'annuel' && soldeInfo">Solde après : {{ Math.max(0, soldeInfo.solde - (isDemiJournee ? 0.5 : dureePreview)) }}j</span>
+            <span class="duree-tag tag-solde" v-if="categorie === 'annuel' && soldeInfo">Solde après : {{ Math.max(0, soldeInfo.solde - (isDemiJournee ? 0.5 : joursOuvrables)) }}j</span>
+          </div>
+
+          <!-- Jours fériés exclus -->
+          <div class="feries-info" v-if="feriesExclus.length > 0">
+            <div class="feries-header">
+              <span>🎉</span> {{ feriesExclus.length }} jour{{ feriesExclus.length > 1 ? 's' : '' }} férié{{ feriesExclus.length > 1 ? 's' : '' }} exclu{{ feriesExclus.length > 1 ? 's' : '' }} :
+            </div>
+            <div class="feries-list">
+              <span class="ferie-chip" v-for="f in feriesExclus" :key="f.date">
+                {{ formatDateShort(f.date) }} — {{ f.nom }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Info dimanches exclus -->
+          <div class="feries-info dimanche-info" v-if="dimanchesExclus > 0 && dateDebut && dateFin">
+            <span>📅</span> {{ dimanchesExclus }} dimanche{{ dimanchesExclus > 1 ? 's' : '' }} exclu{{ dimanchesExclus > 1 ? 's' : '' }} du décompte
           </div>
 
           <!-- Alerte solde insuffisant -->
           <div class="alert alert-error" v-if="soldeInsuffisant">
-            ⚠️ Solde insuffisant ! Vous avez {{ soldeInfo.solde }} jour(s) et demandez {{ dureePreview }} jour(s).
+            ⚠️ Solde insuffisant ! Vous avez {{ soldeInfo.solde }} jour(s) et demandez {{ joursOuvrables }} jour(s) ouvrables.
           </div>
 
           <!-- Alerte durée légale dépassée -->
@@ -202,7 +219,11 @@
             </div>
             <div class="recap-row">
               <span class="recap-label">Durée</span>
-              <span class="recap-val recap-highlight">{{ dureePreview > 0 ? (isDemiJournee ? '½j' : dureePreview + 'j') : '—' }}</span>
+              <span class="recap-val recap-highlight">{{ joursOuvrables !== null ? (isDemiJournee ? '½j' : joursOuvrables + 'j ouvrables') : '—' }}</span>
+            </div>
+            <div class="recap-row" v-if="feriesExclus.length > 0">
+              <span class="recap-label">Fériés exclus</span>
+              <span class="recap-val" style="color:#fb923c;">{{ feriesExclus.length }}j</span>
             </div>
             <div class="recap-row">
               <span class="recap-label">Déductible</span>
@@ -275,6 +296,9 @@ export default {
       focusDebut: false, focusFin: false, focusMotif: false,
       toast: { visible: false, message: '', type: 'success' },
       soldeInfo: null,
+      joursOuvrables: null,
+      feriesExclus: [],
+      dimanchesExclus: 0,
       periodes: [
         { val: 'totalite', label: 'La totalité', icon: '📅' },
         { val: 'partie', label: 'Une partie', icon: '📊' },
@@ -312,8 +336,8 @@ export default {
       return '';
     },
     soldeInsuffisant() {
-      if (this.categorie !== 'annuel' || !this.soldeInfo) return false;
-      const demande = this.isDemiJournee ? 0.5 : this.dureePreview;
+      if (this.categorie !== 'annuel' || !this.soldeInfo || this.joursOuvrables === null) return false;
+      const demande = this.isDemiJournee ? 0.5 : this.joursOuvrables;
       return demande > this.soldeInfo.solde;
     },
     dureeLegaleMax() {
@@ -322,11 +346,12 @@ export default {
       return e ? e.jours : 0;
     },
     dureeLegaleDepassee() {
-      if (!this.dureeLegaleMax || !this.dureePreview) return false;
-      return this.dureePreview > this.dureeLegaleMax;
+      if (!this.dureeLegaleMax || this.joursOuvrables === null) return false;
+      return this.joursOuvrables > this.dureeLegaleMax;
     },
     canSubmit() {
       if (!this.dateDebut || !this.dateFin || this.dateErreur) return false;
+      if (this.joursOuvrables === null || this.joursOuvrables <= 0) return false;
       if (this.soldeInsuffisant || this.dureeLegaleDepassee) return false;
       if (this.categorie === 'exceptionnel' && !this.motifExceptionnel) return false;
       return true;
@@ -346,7 +371,32 @@ export default {
     },
   },
 
+  watch: {
+    dateDebut() { this.calculerOuvrables(); },
+    dateFin() { this.calculerOuvrables(); },
+  },
+
   methods: {
+    async calculerOuvrables() {
+      if (!this.dateDebut || !this.dateFin || new Date(this.dateFin) < new Date(this.dateDebut)) {
+        this.joursOuvrables = null;
+        this.feriesExclus = [];
+        this.dimanchesExclus = 0;
+        return;
+      }
+      try {
+        const res = await axios.get(`/feries/calculer?dateDebut=${this.dateDebut}&dateFin=${this.dateFin}`);
+        this.joursOuvrables = res.data.joursOuvrables;
+        this.feriesExclus = res.data.joursFeries || [];
+        this.dimanchesExclus = res.data.dimanches || 0;
+      } catch {
+        // Fallback calcul simple si API échoue
+        this.joursOuvrables = Math.max(1, Math.round((new Date(this.dateFin) - new Date(this.dateDebut)) / 86400000) + 1);
+        this.feriesExclus = [];
+        this.dimanchesExclus = 0;
+      }
+    },
+
     async chargerSolde() {
       try {
         const res = await axios.get('/conges/solde');
@@ -386,6 +436,7 @@ export default {
 
     handleFile(e) { const f = e.target.files[0]; if (f) this.fichier = f; },
     formatDate(d) { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }); },
+    formatDateShort(d) { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }); },
     formatSize(b) { if (b < 1024) return b + ' o'; if (b < 1048576) return (b/1024).toFixed(1) + ' Ko'; return (b/1048576).toFixed(1) + ' Mo'; },
     showToast(message, type = 'success') { this.toast = { visible: true, message, type }; setTimeout(() => { this.toast.visible = false; }, 3500); },
   },
@@ -466,6 +517,13 @@ export default {
 .duree-text strong { font-weight:700; color:#c4b5fd; }
 .duree-tag { font-size:10px; font-weight:700; padding:3px 10px; border-radius:99px; background:rgba(74,222,128,.12); color:#4ade80; border:1px solid rgba(74,222,128,.2); }
 .tag-solde { background:rgba(251,146,60,.1); color:#fb923c; border-color:rgba(251,146,60,.2); }
+
+/* FERIES INFO */
+.feries-info { display:flex; flex-wrap:wrap; align-items:flex-start; gap:8px; background:rgba(251,146,60,.06); border:1px solid rgba(251,146,60,.15); border-radius:10px; padding:12px 16px; font-size:12px; color:#fb923c; font-weight:500; }
+.feries-header { display:flex; align-items:center; gap:6px; font-weight:700; width:100%; }
+.feries-list { display:flex; flex-wrap:wrap; gap:6px; }
+.ferie-chip { background:rgba(251,146,60,.1); border:1px solid rgba(251,146,60,.2); border-radius:8px; padding:4px 10px; font-size:11px; color:#fb923c; font-weight:600; white-space:nowrap; }
+.dimanche-info { background:rgba(99,102,241,.06); border-color:rgba(99,102,241,.15); color:#818cf8; }
 
 /* UPLOAD */
 .upload-zone { border:2px dashed #334155; border-radius:14px; padding:24px; text-align:center; cursor:pointer; transition:all .25s; }

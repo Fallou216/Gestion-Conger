@@ -13,6 +13,8 @@ const {
   notifierChangementStatut,
   notifierSuppression
 } = require('../services/notificationService');
+const { calculerJoursOuvrables, joursFeriesDansPeriode } = require('../services/joursFeries');
+const { logAction } = require('../services/activityService');
 
 // ── Durées légales des congés exceptionnels (non déductibles du solde) ──
 const DUREES_EXCEPTIONNELS = {
@@ -35,11 +37,14 @@ exports.creerConge = async (req, res) => {
 
     const debut = new Date(dateDebut);
     const fin = new Date(dateFin);
-    let dureeJours = Math.max(1, Math.round((fin - debut) / 86400000) + 1);
 
     if (fin < debut) {
       return res.status(400).json({ message: 'La date de fin doit être après la date de début.' });
     }
+
+    // ── Calcul jours ouvrables (exclut dimanches + jours fériés Sénégal) ──
+    let dureeJours = calculerJoursOuvrables(debut, fin);
+    const feriesPeriode = joursFeriesDansPeriode(debut, fin);
 
     const cat = categorie || 'annuel';
 
@@ -48,7 +53,7 @@ exports.creerConge = async (req, res) => {
       const dureeLegale = DUREES_EXCEPTIONNELS[motifExceptionnel];
       if (dureeJours > dureeLegale) {
         return res.status(400).json({
-          message: `Ce type de congé exceptionnel est limité à ${dureeLegale} jour(s) selon le Code du Travail.`
+          message: `Ce type de congé exceptionnel est limité à ${dureeLegale} jour(s) ouvrables selon le Code du Travail.`
         });
       }
     }
@@ -56,7 +61,7 @@ exports.creerConge = async (req, res) => {
     // ── Congés annuels : vérifier le solde ──
     if (cat === 'annuel') {
       if (dureeJours > 30) {
-        return res.status(400).json({ message: 'Les congés annuels ne peuvent pas dépasser 30 jours.' });
+        return res.status(400).json({ message: 'Les congés annuels ne peuvent pas dépasser 30 jours ouvrables.' });
       }
       const employe = await User.findById(req.user.id);
       if (employe && dureeJours > employe.soldeConges) {
@@ -84,6 +89,9 @@ exports.creerConge = async (req, res) => {
 
     await nouveauConge.save();
 
+    // 📝 Log
+    logAction(req.user.id, 'demande_creee', `Demande ${cat} du ${dateDebut} au ${dateFin} (${dureeJours}j)`, '', req);
+
     // 📧 + 🔔 Notifier les responsables et l'admin
     try {
       const employe = await User.findById(req.user.id);
@@ -98,7 +106,12 @@ exports.creerConge = async (req, res) => {
       console.error('Erreur notification :', emailErr.message);
     }
 
-    res.status(201).json(nouveauConge);
+    res.status(201).json({
+      ...nouveauConge.toObject(),
+      joursOuvrables: dureeJours,
+      joursFeriesExclus: feriesPeriode.map(f => ({ date: f.date, nom: f.nom })),
+      nbFeriesExclus: feriesPeriode.length
+    });
   } catch (err) {
     console.error('Erreur création congé :', err);
     res.status(500).json({ message: 'Erreur lors de la création du congé.' });
@@ -183,6 +196,10 @@ exports.changerStatut = async (req, res) => {
       await recalculerSolde(conge.employe._id);
     }
 
+    // 📝 Log
+    const actionType = statut === 'approuvé' ? 'demande_approuvee' : 'demande_refusee';
+    logAction(req.user.id, actionType, `Demande de ${conge.employe?.prenom} ${conge.employe?.nom} ${statut}`, conge.employe?.email || '', req);
+
     // 📧 + 🔔 Notifier l'employé
     try {
       if (conge.employe) {
@@ -227,6 +244,9 @@ exports.responsableSupprimerConge = async (req, res) => {
 
     // Recalculer le solde
     if (employeId) await recalculerSolde(employeId);
+
+    // 📝 Log
+    logAction(req.user.id, 'demande_supprimee_admin', `Demande de ${conge.employe?.prenom} ${conge.employe?.nom} supprimée`, conge.employe?.email || '', req);
 
     res.json({ message: 'Demande supprimée par le responsable.' });
   } catch (err) {

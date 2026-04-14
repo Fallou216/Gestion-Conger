@@ -175,6 +175,7 @@ export default {
           { icon: '🏢', label: 'Services', to: '/admin/services' },
           { icon: '📋', label: 'Demandes', to: '/admin/demandes' },
           { icon: '📅', label: 'Calendrier', to: '/admin/calendrier' },
+          { icon: '📜', label: 'Historique', to: '/admin/historique' },
         ];
       }
       if (this.role === 'responsable') {
@@ -314,7 +315,7 @@ export default {
 .sidebar {
   font-family: 'Sora', sans-serif;
   width: 260px;
-  min-height: 100vh;
+  height: 100vh;
   background: #0d1117;
   border-right: 1px solid #1e293b;
   display: flex;
@@ -325,7 +326,8 @@ export default {
   left: 0;
   z-index: 1000;
   transition: width .3s cubic-bezier(.4,0,.2,1);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 .sidebar.collapsed {
   width: 72px;
