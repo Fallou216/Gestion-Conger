@@ -103,92 +103,168 @@
     </div>
 
     <!-- TABLEAU -->
-    <div class="card table-card">
-      <div class="card-hd">
-        <span class="card-title">Toutes les demandes</span>
-        <div class="filters">
+    <div class="main-grid">
+      <div class="card table-card">
+        <div class="card-hd">
+          <span class="card-title">Toutes les demandes</span>
+          <span class="card-sub">{{ congesFiltres.length }} résultat{{ congesFiltres.length > 1 ? 's' : '' }}</span>
+        </div>
+
+        <div class="filter-bar">
           <div class="sbox">
             <span class="s-icon">🔍</span>
             <input v-model="recherche" type="text" placeholder="Rechercher un employé…" class="s-input" />
           </div>
           <div class="tabs">
-            <button
-              v-for="tab in tabs" :key="tab.val"
-              :class="['tab', { on: filtreStatut === tab.val }]"
-              @click="filtreStatut = tab.val"
-            >
+            <button v-for="tab in tabs" :key="tab.val" :class="['tab', { on: filtreStatut === tab.val }]" @click="filtreStatut = tab.val">
               {{ tab.label }}
               <span class="tab-badge" v-if="tab.count > 0">{{ tab.count }}</span>
             </button>
           </div>
+          <div class="tabs cat-tabs">
+            <button v-for="tab in tabsCat" :key="tab.val" :class="['tab', { on: filtreCat === tab.val }]" @click="filtreCat = tab.val">
+              {{ tab.icon }} {{ tab.label }}
+            </button>
+          </div>
+        </div>
+
+        <div class="loader-wrap" v-if="chargement">
+          <div class="spinner"></div>
+          <span>Chargement des données…</span>
+        </div>
+
+        <div class="empty" v-else-if="!congesFiltres.length">
+          <div class="empty-icon">📭</div>
+          <p>Aucune demande trouvée</p>
+        </div>
+
+        <div class="tbl-wrap" v-else>
+          <table>
+            <thead>
+              <tr>
+                <th>Employé</th>
+                <th>Période</th>
+                <th>Durée</th>
+                <th>Catégorie</th>
+                <th>Solde</th>
+                <th>Statut</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="trow" v-for="conge in congesPagines" :key="conge._id"
+                :class="{ selected: selectedId === conge._id }"
+                @click="selectConge(conge)">
+                <td>
+                  <div class="emp-cell">
+                    <div class="avatar" :style="{ background: avatarColor(conge.employe?.nom) }">
+                      {{ initiales(conge.employe?.nom, conge.employe?.prenom) }}
+                    </div>
+                    <div>
+                      <div class="emp-name">{{ conge.employe?.prenom }} {{ conge.employe?.nom }}</div>
+                      <div class="emp-email">{{ conge.employe?.email || '—' }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="periode">
+                    <span class="pd">{{ formatDate(conge.dateDebut) }}</span>
+                    <span class="arr">→</span>
+                    <span class="pd">{{ formatDate(conge.dateFin) }}</span>
+                  </div>
+                </td>
+                <td><span class="dur-badge">{{ conge.dureeJours || duree(conge.dateDebut, conge.dateFin) }}j</span></td>
+                <td>
+                  <span class="cat-badge" :class="'cat-' + (conge.categorie || 'annuel')">
+                    {{ catIcon(conge.categorie) }} {{ catLabel(conge.categorie) }}
+                  </span>
+                </td>
+                <td><span class="solde-cell">{{ conge.employe?.soldeConges || 0 }}j</span></td>
+                <td>
+                  <span :class="['status-badge', statusClass(conge.statut)]">
+                    {{ statusIcon(conge.statut) }} {{ conge.statut }}
+                  </span>
+                </td>
+                <td>
+                  <div class="act-btns" @click.stop>
+                    <button v-if="conge.statut === 'en attente'" @click="changerStatut(conge._id, 'approuvé')" class="abtn abtn-ok" title="Approuver">✅</button>
+                    <button v-if="conge.statut === 'en attente'" @click="changerStatut(conge._id, 'refusé')"  class="abtn abtn-no" title="Refuser">❌</button>
+                    <button @click="supprimerDemande(conge._id)" class="abtn abtn-del" title="Supprimer">🗑</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- PAGINATION -->
+        <div class="pagination" v-if="totalPages > 1">
+          <button class="pag-btn" :disabled="page <= 1" @click="page--">← Précédent</button>
+          <span class="pag-info">Page {{ page }} / {{ totalPages }}</span>
+          <button class="pag-btn" :disabled="page >= totalPages" @click="page++">Suivant →</button>
         </div>
       </div>
 
-      <div class="loader-wrap" v-if="chargement">
-        <div class="spinner"></div>
-        <span>Chargement des données…</span>
-      </div>
+      <!-- PANNEAU DÉTAIL -->
+      <transition name="slide">
+        <div class="card detail-panel" v-if="selectedConge">
+          <div class="card-hd">
+            <span class="card-title">Détails</span>
+            <button class="close-btn" @click="selectedConge = null; selectedId = null">✕</button>
+          </div>
+          <div class="detail-body">
+            <div class="detail-status-bar" :class="'dsb-' + statusKey(selectedConge.statut)">
+              <span>{{ statusIcon(selectedConge.statut) }}</span>
+              <span>{{ selectedConge.statut }}</span>
+            </div>
 
-      <div class="empty" v-else-if="!congesFiltres.length">
-        <div class="empty-icon">📭</div>
-        <p>Aucune demande trouvée</p>
-      </div>
+            <div class="d-row" v-if="selectedConge.employe">
+              <span class="d-label">Employé</span>
+              <div class="d-val emp-info-d">
+                <div class="avatar-sm" :style="{ background: avatarColor(selectedConge.employe.nom) }">{{ initiales(selectedConge.employe.nom, selectedConge.employe.prenom) }}</div>
+                <span>{{ selectedConge.employe.prenom }} {{ selectedConge.employe.nom }}</span>
+              </div>
+            </div>
+            <div class="d-row">
+              <span class="d-label">Catégorie</span>
+              <span class="cat-badge" :class="'cat-' + (selectedConge.categorie || 'annuel')">{{ catIcon(selectedConge.categorie) }} {{ catLabel(selectedConge.categorie) }}</span>
+            </div>
+            <div class="d-row" v-if="selectedConge.motifExceptionnel">
+              <span class="d-label">Motif except.</span>
+              <span class="d-val">{{ excLabel(selectedConge.motifExceptionnel) }}</span>
+            </div>
+            <div class="d-row">
+              <span class="d-label">Date début</span>
+              <span class="d-val">{{ formatDateLong(selectedConge.dateDebut) }}</span>
+            </div>
+            <div class="d-row">
+              <span class="d-label">Date fin</span>
+              <span class="d-val">{{ formatDateLong(selectedConge.dateFin) }}</span>
+            </div>
+            <div class="d-row">
+              <span class="d-label">Durée</span>
+              <span class="d-val d-highlight">{{ selectedConge.dureeJours || duree(selectedConge.dateDebut, selectedConge.dateFin) }} jour(s)</span>
+            </div>
+            <div class="d-row">
+              <span class="d-label">Solde employé</span>
+              <span class="d-val d-highlight">{{ selectedConge.employe?.soldeConges || 0 }}j</span>
+            </div>
+            <div class="d-row">
+              <span class="d-label">Motif</span>
+              <span class="d-val">{{ selectedConge.motif || '—' }}</span>
+            </div>
+            <div class="d-row" v-if="selectedConge.fichier">
+              <span class="d-label">Justificatif</span>
+              <a :href="`${apiUrl}/uploads/${selectedConge.fichier}`" target="_blank" class="file-link">📎 Voir</a>
+            </div>
 
-      <div class="tbl-wrap" v-else>
-        <table>
-          <thead>
-            <tr>
-              <th>Employé</th>
-              <th>Période</th>
-              <th>Durée</th>
-              <th>Motif</th>
-              <th>Pièce jointe</th>
-              <th>Statut</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr class="trow" v-for="conge in congesFiltres" :key="conge._id">
-              <td>
-                <div class="emp-cell">
-                  <div class="avatar" :style="{ background: avatarColor(conge.employe?.nom) }">
-                    {{ initiales(conge.employe?.nom, conge.employe?.prenom) }}
-                  </div>
-                  <div>
-                    <div class="emp-name">{{ conge.employe?.prenom }} {{ conge.employe?.nom }}</div>
-                    <div class="emp-email">{{ conge.employe?.email || '—' }}</div>
-                  </div>
-                </div>
-              </td>
-              <td>
-                <div class="periode">
-                  <span class="pd">{{ formatDate(conge.dateDebut) }}</span>
-                  <span class="arr">→</span>
-                  <span class="pd">{{ formatDate(conge.dateFin) }}</span>
-                </div>
-              </td>
-              <td><span class="dur-badge">{{ duree(conge.dateDebut, conge.dateFin) }}j</span></td>
-              <td><span class="motif">{{ conge.motif || '—' }}</span></td>
-              <td>
-                <a v-if="conge.fichier" :href="`${apiUrl}/uploads/${conge.fichier}`" target="_blank" class="file-link">📎 Voir</a>
-                <span v-else class="no-data">—</span>
-              </td>
-              <td>
-                <span :class="['status-badge', statusClass(conge.statut)]">
-                  {{ statusIcon(conge.statut) }} {{ conge.statut }}
-                </span>
-              </td>
-              <td>
-                <div class="act-btns">
-                  <button v-if="conge.statut === 'en attente'" @click="changerStatut(conge._id, 'approuvé')" class="abtn abtn-ok" title="Approuver">✅</button>
-                  <button v-if="conge.statut === 'en attente'" @click="changerStatut(conge._id, 'refusé')"  class="abtn abtn-no" title="Refuser">✗</button>
-                  <button @click="supprimerDemande(conge._id)" class="abtn abtn-del" title="Supprimer">🗑</button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+            <div class="detail-actions" v-if="selectedConge.statut === 'en attente'">
+              <button class="da-btn da-ok" @click="changerStatut(selectedConge._id, 'approuvé')">✅ Approuver</button>
+              <button class="da-btn da-no" @click="changerStatut(selectedConge._id, 'refusé')">❌ Refuser</button>
+            </div>
+          </div>
+        </div>
+      </transition>
     </div>
 
     <!-- TOAST -->
@@ -233,6 +309,11 @@ export default {
       chargement: true,
       recherche: '',
       filtreStatut: 'tous',
+      filtreCat: 'tous',
+      selectedConge: null,
+      selectedId: null,
+      page: 1,
+      perPage: 10,
       apiUrl: import.meta.env.VITE_API_URL || 'http://localhost:5000',
       toast: { visible: false, message: '', type: 'success' },
       charts: {},
@@ -260,16 +341,33 @@ export default {
       ];
     },
 
+    tabsCat() {
+      return [
+        { val: 'tous', label: 'Tous', icon: '📋' },
+        { val: 'annuel', label: 'Annuel', icon: '🌴' },
+        { val: 'exceptionnel', label: 'Except.', icon: '⭐' },
+        { val: 'autre', label: 'Autre', icon: '📝' },
+      ];
+    },
+
     congesFiltres() {
       return this.conges.filter(c => {
         const okStatut = this.filtreStatut === 'tous' || c.statut === this.filtreStatut;
+        const okCat = this.filtreCat === 'tous' || (c.categorie || 'annuel') === this.filtreCat;
         const q = this.recherche.toLowerCase();
         const okSearch = !q
           || (c.employe?.nom || '').toLowerCase().includes(q)
           || (c.employe?.prenom || '').toLowerCase().includes(q)
-          || (c.employe?.email || '').toLowerCase().includes(q);
-        return okStatut && okSearch;
+          || (c.employe?.email || '').toLowerCase().includes(q)
+          || (c.motif || '').toLowerCase().includes(q);
+        return okStatut && okCat && okSearch;
       });
+    },
+
+    totalPages() { return Math.ceil(this.congesFiltres.length / this.perPage); },
+    congesPagines() {
+      const start = (this.page - 1) * this.perPage;
+      return this.congesFiltres.slice(start, start + this.perPage);
     },
 
     moisData() {
@@ -535,9 +633,14 @@ export default {
       try {
         await axios.put(`/conges/${id}`, { statut });
         await this.chargerConges();
+        // Rafraîchir le panneau détail si ouvert
+        if (this.selectedId === id) {
+          const updated = this.conges.find(c => c._id === id);
+          if (updated) this.selectedConge = updated;
+        }
         this.showToast(`Demande ${statut} avec succès`, 'success');
-      } catch {
-        this.showToast('Erreur lors de la mise à jour', 'error');
+      } catch (err) {
+        this.showToast(err.response?.data?.message || 'Erreur lors de la mise à jour', 'error');
       }
     },
 
@@ -545,6 +648,7 @@ export default {
       if (!confirm('Supprimer cette demande définitivement ?')) return;
       try {
         await axios.delete(`/conges/admin/${id}`);
+        if (this.selectedId === id) { this.selectedConge = null; this.selectedId = null; }
         await this.chargerConges();
         this.showToast('Demande supprimée', 'success');
       } catch {
@@ -577,6 +681,16 @@ export default {
     showToast(message, type = 'success') {
       this.toast = { visible: true, message, type };
       setTimeout(() => { this.toast.visible = false; }, 3500);
+    },
+
+    selectConge(c) { this.selectedConge = c; this.selectedId = c._id; },
+    catLabel(cat) { return cat === 'exceptionnel' ? 'Except.' : cat === 'autre' ? 'Autre' : 'Annuel'; },
+    catIcon(cat) { return cat === 'exceptionnel' ? '⭐' : cat === 'autre' ? '📝' : '🌴'; },
+    statusKey(s) { return s === 'approuvé' ? 'ok' : s === 'refusé' ? 'no' : 'wait'; },
+    formatDateLong(d) { return new Date(d).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' }); },
+    excLabel(m) {
+      const labels = { mariage_employe:'Mariage employé', mariage_enfant_frere_soeur:'Mariage enfant/frère/sœur', deces_conjoint_descendant:'Décès conjoint/descendant', deces_ascendant_frere_soeur:'Décès ascendant/frère/sœur', deces_beau_pere_belle_mere:'Décès beau-père/belle-mère', naissance_enfant:'Naissance', bapteme_enfant:'Baptême', premiere_communion:'Première communion', hospitalisation_famille:'Hospitalisation famille' };
+      return labels[m] || m;
     },
 
     async exportExcel() {
@@ -725,6 +839,56 @@ td { padding:15px 22px; vertical-align:middle; }
 .abtn-ok:hover { background:rgba(74,222,128,.15); border-color:rgba(74,222,128,.3); }
 .abtn-no:hover { background:rgba(248,113,113,.15); border-color:rgba(248,113,113,.3); color:#f87171; }
 .abtn-del:hover { background:rgba(71,85,105,.3); }
+
+/* MAIN GRID */
+.main-grid { display:grid; grid-template-columns:1fr 360px; gap:20px; }
+
+/* FILTER BAR */
+.filter-bar { padding:14px 22px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; border-bottom:1px solid #1e293b; }
+.cat-tabs { margin-left:auto; }
+
+/* TABLE AMÉLIORÉ */
+.trow { cursor:pointer; }
+.trow.selected { background:rgba(79,70,229,.06); border-left:3px solid #4f46e5; }
+.cat-badge { font-size:10px; font-weight:700; padding:3px 10px; border-radius:99px; display:inline-flex; align-items:center; gap:4px; white-space:nowrap; }
+.cat-annuel { background:rgba(129,140,248,.12); color:#818cf8; }
+.cat-exceptionnel { background:rgba(251,146,60,.12); color:#fb923c; }
+.cat-autre { background:rgba(148,163,184,.12); color:#94a3b8; }
+.solde-cell { color:#a5b4fc; font-weight:700; font-size:12px; }
+
+/* PAGINATION */
+.pagination { display:flex; align-items:center; justify-content:center; gap:16px; padding:16px; border-top:1px solid #1e293b; }
+.pag-btn { padding:7px 16px; border-radius:8px; border:1px solid #334155; background:#1e293b; color:#94a3b8; font-size:11px; font-weight:600; font-family:'Sora',sans-serif; cursor:pointer; transition:all .2s; }
+.pag-btn:hover:not(:disabled) { border-color:#4f46e5; color:#a5b4fc; }
+.pag-btn:disabled { opacity:.3; cursor:not-allowed; }
+.pag-info { font-size:11px; color:#475569; font-weight:600; }
+
+/* DETAIL PANEL */
+.detail-panel { position:sticky; top:20px; height:fit-content; }
+.close-btn { width:28px; height:28px; border-radius:8px; border:1px solid #334155; background:#1e293b; color:#94a3b8; cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; transition:all .15s; font-family:inherit; }
+.close-btn:hover { background:rgba(248,113,113,.12); color:#f87171; }
+.detail-body { padding:0 24px 24px; }
+.detail-status-bar { display:flex; align-items:center; gap:8px; padding:12px 16px; border-radius:12px; margin:16px 0; font-size:13px; font-weight:700; }
+.dsb-ok { background:rgba(74,222,128,.1); color:#4ade80; } .dsb-wait { background:rgba(251,146,60,.1); color:#fb923c; } .dsb-no { background:rgba(248,113,113,.1); color:#f87171; }
+.d-row { display:flex; align-items:center; justify-content:space-between; padding:11px 0; border-bottom:1px solid rgba(30,41,59,.3); }
+.d-row:last-child { border-bottom:none; }
+.d-label { font-size:11px; color:#475569; font-weight:600; }
+.d-val { font-size:12px; color:#e2e8f0; font-weight:600; text-align:right; max-width:55%; }
+.d-highlight { color:#a5b4fc; font-weight:800; font-size:14px; }
+.emp-info-d { display:flex; align-items:center; gap:8px; }
+.avatar-sm { width:24px; height:24px; border-radius:7px; color:white; font-size:9px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.detail-actions { display:flex; gap:8px; margin-top:20px; }
+.da-btn { flex:1; padding:12px; border-radius:10px; border:none; font-size:13px; font-weight:700; font-family:'Sora',sans-serif; cursor:pointer; transition:all .2s; }
+.da-ok { background:rgba(74,222,128,.12); color:#4ade80; border:1px solid rgba(74,222,128,.2); }
+.da-ok:hover { background:rgba(74,222,128,.2); }
+.da-no { background:rgba(248,113,113,.1); color:#f87171; border:1px solid rgba(248,113,113,.2); }
+.da-no:hover { background:rgba(248,113,113,.2); }
+
+/* SLIDE TRANSITION */
+.slide-enter-active { animation:slideIn .3s ease; } .slide-leave-active { animation:slideIn .2s ease reverse; }
+@keyframes slideIn { from{opacity:0;transform:translateX(16px);} to{opacity:1;transform:translateX(0);} }
+
+@media (max-width:1100px) { .main-grid{grid-template-columns:1fr;} .detail-panel{position:static;} }
 
 /* TOAST */
 .toast { position:fixed; bottom:28px; right:28px; padding:14px 22px; border-radius:14px; font-size:13px; font-weight:600; display:flex; align-items:center; gap:10px; z-index:9999; font-family:'Sora',sans-serif; }
